@@ -183,18 +183,18 @@ function createCard(game) {
     💲 Harga: ${game.is_free ? "Gratis" : (game.price_overview?.final_formatted || "Tidak diketahui")}
   `;
 
+  // tombol default disable
   const downloadBtn = document.createElement("a");
-  downloadBtn.textContent = "⬇️ Download ZIP";
-  downloadBtn.className = "mt-3 inline-block text-center px-4 py-2 rounded-lg";
+  downloadBtn.textContent = "⬇️ Download ZIP dari GitHub";
+  downloadBtn.href = "#";
+  downloadBtn.className = "mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed";
 
-  // cek branch di GitHub
+  // cek branch → update tombol setelah fetch selesai
   checkBranchExists(game.steam_appid).then(exists => {
     if (exists) {
       downloadBtn.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${game.steam_appid}`;
-      downloadBtn.className += " bg-green-600 hover:bg-green-700";
+      downloadBtn.className = "mt-3 inline-block text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700";
     } else {
-      downloadBtn.href = "#";
-      downloadBtn.className += " bg-gray-500 cursor-not-allowed";
       downloadBtn.textContent = "⚠️ Branch tidak tersedia";
     }
   });
