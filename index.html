@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>ManifestHub — Multi-result Search + GitHub Download</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
+
+  <div class="max-w-4xl mx-auto">
+    <div class="bg-gray-800 rounded-2xl p-6 shadow-lg">
+      <h1 class="text-2xl font-bold text-center text-indigo-300 mb-4">🎮 ManifestHub — Search & Multi-Result</h1>
+
+      <div class="flex gap-3 mb-4">
+        <input id="q" type="text" placeholder="Cari nama game atau masukkan App ID (mis. dota / 570)"
+               class="flex-1 px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        <button id="btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold shadow">Cari</button>
+        <button id="clear" class="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg">Bersihkan</button>
+      </div>
+
+      <div id="status" class="text-sm text-yellow-300 mb-4"></div>
+
+      <div id="results" class="space-y-4"></div>
+    </div>
+  </div>
+
+<script>
+/*
+  Features:
+  - Search by name (SearchApps via proxy) => get list of {appid, name}
+  - If user types pure number (AppID) => use this directly as single-result search
+  - For each result (top N), fetch /api/appdetails via proxy and check GitHub branch:
+      https://api.github.com/repos/SteamAutoCracks/ManifestHub/branches/{appid}
+    If branch exists -> enable download button:
+      https://codeload.github.com/SteamAutoCracks/ManifestHub/zip/refs/heads/{appid}
+*/
+
+const owner = 'SteamAutoCracks';
+const repo = 'ManifestHub';
+
+const qEl = document.getElementById('q');
+const btn = document.getElementById('btn');
+const clearBtn = document.getElementById('clear');
+const status = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+
+btn.addEventListener('click', doSearch);
+qEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+clearBtn.addEventListener('click', () => {
+  qEl.value = '';
+  resultsEl.innerHTML = '';
+  status.textContent = '';
+});
+
+function setStatus(text, isError = false) {
+  status.textContent = text || '';
+  status.classList.toggle('text-red-400', isError);
+  status.classList.toggle('text-yellow-300', !isError && !!text);
+}
+
+async function fetchViaAllOrigins(url) {
+  const proxy = 'https://api.allorigins.win/get?url=';
+  const full = proxy + encodeURIComponent(url);
+  const r = await fetch(full);
+  if (!r.ok) throw new Error('Proxy fetch failed: ' + r.status);
+  const j = await r.json();
+  return j.contents;
+}
+
+async function searchByName(query) {
+  const url = `https://steamcommunity.com/actions/SearchApps/${encodeURIComponent(query)}`;
+  try {
+    const contents = await fetchViaAllOrigins(url);
+    return JSON.parse(contents);
+  } catch (err) {
+    console.warn('searchByName error', err);
+    return [];
+  }
+}
+
+async function getAppDetails(appid) {
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=en&cc=us`;
+  try {
+    const contents = await fetchViaAllOrigins(url);
+    return JSON.parse(contents);
+  } catch (err) {
+    console.warn('getAppDetails error', err);
+    return null;
+  }
+}
+
+async function checkBranch(appid) {
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/branches/${appid}`;
+    const r = await fetch(url);
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+function createCardHTML(appid, data, branchExists) {
+  const info = data || {};
+  const name = info.name || `App ${appid}`;
+  const header = info.header_image || '';
+  const short = info.short_description || '';
+  const release = (info.release_date && info.release_date.date) ? info.release_date.date : '-';
+  const genres = (info.genres || []).map(g=>g.description).join(', ') || '-';
+  const platforms = info.platforms ? Object.keys(info.platforms).filter(k=>info.platforms[k]).join(', ') : '-';
+  const price = info.is_free ? 'Gratis' : (info.price_overview ? info.price_overview.final_formatted : '-');
+
+  const downloadUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${appid}`;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'bg-gray-800 p-4 rounded-lg shadow flex gap-4';
+
+  const img = document.createElement('img');
+  img.src = header;
+  img.alt = name;
+  img.className = 'w-36 h-36 object-cover rounded-md flex-shrink-0';
+  wrapper.appendChild(img);
+
+  const content = document.createElement('div');
+  content.className = 'flex-1';
+
+  const h = document.createElement('h3');
+  h.className = 'text-lg font-bold text-indigo-300 mb-1';
+  h.textContent = name + ` (ID: ${appid})`;
+  content.appendChild(h);
+
+  const pShort = document.createElement('p');
+  pShort.className = 'text-sm text-gray-300 mb-2';
+  pShort.textContent = short;
+  content.appendChild(pShort);
+
+  const meta = document.createElement('div');
+  meta.className = 'text-sm text-gray-400 space-y-1';
+  meta.innerHTML = `
+    <div>📅 Rilis: <span class="text-gray-200">${release}</span></div>
+    <div>🎭 Genre: <span class="text-gray-200">${genres}</span></div>
+    <div>💻 Platform: <span class="text-gray-200">${platforms}</span></div>
+    <div>💲 Harga: <span class="text-gray-200">${price}</span></div>
+  `;
+  content.appendChild(meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'mt-3 flex items-center gap-3';
+
+  const dl = document.createElement('a');
+  dl.href = branchExists ? downloadUrl : '#';
+  dl.target = '_blank';
+  dl.rel = 'noopener noreferrer';
+  dl.className = 'inline-block px-4 py-2 rounded-lg font-semibold shadow text-white ' +
+                 (branchExists ? 'bg-green-500 hover:bg-green-600' : 'bg-green-700 disabled');
+  dl.textContent = '⬇️ Download ZIP dari GitHub';
+  if (!branchExists) {
+    dl.classList.add('disabled');
+    dl.setAttribute('aria-disabled', 'true');
+    const note = document.createElement('span');
+    note.className = 'text-sm text-yellow-400 ml-2';
+    note.textContent = 'Branch tidak tersedia';
+    actions.appendChild(dl);
+    actions.appendChild(note);
+  } else {
+    actions.appendChild(dl);
+  }
+
+  content.appendChild(actions);
+
+  wrapper.appendChild(content);
+
+  return wrapper;
+}
+
+async function doSearch(){
+  const q = qEl.value.trim();
+  resultsEl.innerHTML = '';
+  setStatus('');
+
+  if (!q) {
+    setStatus('Masukkan nama game atau App ID.', true);
+    return;
+  }
+
+  setStatus('⏳ Mencari...');
+
+  if (/^\d+$/.test(q)) {
+    const appid = q;
+    try {
+      const steamObj = await getAppDetails(appid);
+      if (!steamObj || !steamObj[appid] || steamObj[appid].success === false) {
+        setStatus('❌ Data Steam tidak ditemukan untuk App ID ini.', true);
+        return;
+      }
+      const data = steamObj[appid].data;
+      const branchExists = await checkBranch(appid);
+      const card = createCardHTML(appid, data, branchExists);
+      resultsEl.appendChild(card);
+      setStatus(branchExists ? '✅ Branch ditemukan di GitHub.' : '⚠️ Branch tidak ada di GitHub.');
+    } catch (err) {
+      console.error(err);
+      setStatus('❌ Gagal mengambil data (periksa koneksi / proxy).', true);
+    }
+    return;
+  }
+
+  try {
+    const list = await searchByName(q);
+    if (!list || list.length === 0) {
+      setStatus('❌ Game tidak ditemukan (coba kata kunci lain).', true);
+      return;
+    }
+
+    setStatus(`⏳ Mengambil detail ${Math.min(list.length,6)} hasil teratas...`);
+    const top = list.slice(0, 6);
+
+    const jobs = top.map(async (item) => {
+      const appid = item.appid;
+      const [steamObj, branchExists] = await Promise.all([
+        getAppDetails(appid),
+        checkBranch(appid)
+      ]);
+      const data = steamObj && steamObj[appid] && steamObj[appid].data ? steamObj[appid].data : null;
+      return { appid, data, branchExists };
+    });
+
+    const results = await Promise.all(jobs);
+
+    resultsEl.innerHTML = '';
+    for (const r of results) {
+      const card = createCardHTML(r.appid, r.data, r.branchExists);
+      resultsEl.appendChild(card);
+    }
+
+    setStatus('✅ Selesai.');
+  } catch (err) {
+    console.error('search error', err);
+    setStatus('❌ Gagal mengambil data pencarian (proxy/API mungkin limit).', true);
+  }
+}
+</script>
+
+</body>
+</html>
