@@ -200,7 +200,7 @@ checkBranchExists(game.steam_appid).then(exists => {
   if (exists && !notReleased) {
     downloadBtn.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${game.steam_appid}`;
     downloadBtn.className = "mt-3 inline-block text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700";
-    downloadBtn.textContent = "⬇️ Download ZIP dari GitHub";
+    downloadBtn.textContent = "⬇️ Download ZIP";
   } else if (notReleased) {
     downloadBtn.textContent = "⚠️ Belum Rilis";
   } else {
