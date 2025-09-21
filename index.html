@@ -6,7 +6,6 @@
   <title>ManifestHub</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* tailwind line-clamp util jika belum tersedia di runtime */
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .disabled { opacity: .6; pointer-events: none; }
   </style>
@@ -57,8 +56,8 @@
     </div>
   </div>
 
-  <!-- About Modal -->
-  <div id="aboutModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <!-- Modals -->
+ <div id="aboutModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
     <div class="bg-gray-800 text-gray-200 rounded-xl shadow-lg p-6 max-w-lg w-full">
       <h2 class="text-xl font-bold mb-3">ℹ️ Tentang ManifestHub</h2>
       <p class="mb-3"><b>ManifestHub Downloader + Steam Info</b> adalah alat untuk mencari game berdasarkan <i>nama</i> atau <i>App ID</i> dari Steam. Website ini menampilkan detail game dari Steam Store API dan memberi opsi untuk mengunduh branch ZIP dari repo GitHub ManifestHub jika tersedia.</p>
@@ -156,30 +155,29 @@
 
 
 <script>
-  // Menu dropdown logic
+  (function checkJsonMode(){
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('json') === '1' && params.get('id')) {
+      const id = params.get('id');
+      const serverJsonUrl = `/json?id=${encodeURIComponent(id)}`;
+      window.location.replace(serverJsonUrl);
+    }
+  })();
+
   const menuBtn = document.getElementById('menuBtn');
   const menuDropdown = document.getElementById('menuDropdown');
-  menuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menuDropdown.classList.toggle('hidden');
-  });
-  window.addEventListener('click', (e) => {
-    if (!e.target.closest('#menuDropdown') && !e.target.closest('#menuBtn')) {
-      menuDropdown.classList.add('hidden');
-    }
-  });
+  menuBtn?.addEventListener('click', (e) => { e.stopPropagation(); menuDropdown.classList.toggle('hidden'); });
+  window.addEventListener('click', (e) => { if (!e.target.closest('#menuDropdown') && !e.target.closest('#menuBtn')) menuDropdown.classList.add('hidden'); });
 
-  // Modal open/close helpers
-  function openAbout(){ document.getElementById('aboutModal').classList.remove('hidden'); document.getElementById('aboutModal').classList.add('flex'); }
-  function closeAbout(){ document.getElementById('aboutModal').classList.add('hidden'); document.getElementById('aboutModal').classList.remove('flex'); }
-  function openHelp(){ document.getElementById('helpModal').classList.remove('hidden'); document.getElementById('helpModal').classList.add('flex'); }
-  function closeHelp(){ document.getElementById('helpModal').classList.add('hidden'); document.getElementById('helpModal').classList.remove('flex'); }
-  function openSteamTool(){ document.getElementById('steamToolModal').classList.remove('hidden'); document.getElementById('steamToolModal').classList.add('flex'); }
-  function closeSteamTool(){ document.getElementById('steamToolModal').classList.add('hidden'); document.getElementById('steamToolModal').classList.remove('flex'); }
-  function openMantaTool(){ document.getElementById('mantaModal').classList.remove('hidden'); document.getElementById('mantaModal').classList.add('flex'); }
-  function closeMantaTool(){ document.getElementById('mantaModal').classList.add('hidden'); document.getElementById('mantaModal').classList.remove('flex'); }
+  function openAbout(){ aboutModal.classList.remove('hidden'); aboutModal.classList.add('flex'); }
+  function closeAbout(){ aboutModal.classList.add('hidden'); aboutModal.classList.remove('flex'); }
+  function openHelp(){ helpModal.classList.remove('hidden'); helpModal.classList.add('flex'); }
+  function closeHelp(){ helpModal.classList.add('hidden'); helpModal.classList.remove('flex'); }
+  function openMantaTool(){ mantaModal.classList.remove('hidden'); mantaModal.classList.add('flex'); }
+  function closeMantaTool(){ mantaModal.classList.add('hidden'); mantaModal.classList.remove('flex'); }
+  function openSteamTool(){ steamToolModal.classList.remove('hidden'); steamToolModal.classList.add('flex'); }
+  function closeSteamTool(){ steamToolModal.classList.add('hidden'); steamToolModal.classList.remove('flex'); }
 
-  // Search + results code (same features as before)
   const owner = "SteamAutoCracks";
   const repo = "ManifestHub";
   let allResults = [];
@@ -212,24 +210,22 @@
       if (/^\d+$/.test(q)) {
         appIds = [q];
       } else {
-        // Use storesearch (faster results for name queries)
-        const searchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent("https://store.steampowered.com/api/storesearch/?term=" + q + "&cc=us")}`;
-        const r = await fetch(searchUrl);
+        const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
         const data = await r.json();
         if (data.items?.length) appIds = data.items.map(i => i.id);
       }
 
       if (!appIds.length) { setStatus('❌ Game tidak ditemukan.', true); return; }
 
-      // fetch details
       allResults = [];
       for (const id of appIds) {
         try {
-          const detailUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent("https://store.steampowered.com/api/appdetails?appids=" + id + "&cc=us")}`;
-          const r = await fetch(detailUrl);
+          const r = await fetch(`/api/appdetails?id=${id}`);
           const obj = await r.json();
           if (obj[id]?.success) allResults.push(obj[id].data);
-        } catch(e){ /* ignore individual failures */ }
+        } catch(e){
+          console.error(e);
+        }
       }
 
       if (!allResults.length) { setStatus('⚠️ Gagal mengambil data.', true); return; }
@@ -265,9 +261,8 @@
 
   function makeCard(game){
     const wrapper = document.createElement('div');
-    wrapper.className = 'bg-gray-700 p-4 rounded-lg shadow flex flex-col hover:shadow-xl hover:-translate-y-1 transition-transform duration-200';
+    wrapper.className = 'bg-gray-700 p-4 rounded-lg shadow flex flex-col hover:shadow-xl transition-transform duration-200';
 
-    // image
     const img = document.createElement('img');
     img.src = game.header_image || '';
     img.alt = game.name || '';
@@ -275,37 +270,16 @@
     img.className = 'w-full rounded-lg object-cover mb-3';
     wrapper.appendChild(img);
 
-    // title
     const title = document.createElement('h3');
     title.className = 'text-lg font-semibold mb-2 text-blue-300';
     title.textContent = `${game.name || 'Unknown'} (ID: ${game.steam_appid || '-'})`;
     wrapper.appendChild(title);
 
-    // desc + read more
-    const descWrapper = document.createElement('div');
-    descWrapper.className = 'mb-2';
     const desc = document.createElement('p');
-    desc.className = 'text-sm text-gray-300 line-clamp-3 overflow-hidden';
+    desc.className = 'text-sm text-gray-300 line-clamp-3 overflow-hidden mb-2';
     desc.textContent = game.short_description || '';
-    descWrapper.appendChild(desc);
-    if ((game.short_description || '').length > 150) {
-      const more = document.createElement('button');
-      more.className = 'ml-1 text-blue-400 hover:underline text-sm';
-      more.textContent = 'Baca Selengkapnya';
-      more.onclick = () => {
-        if (desc.classList.contains('line-clamp-3')) {
-          desc.classList.remove('line-clamp-3','overflow-hidden');
-          more.textContent = 'Tutup';
-        } else {
-          desc.classList.add('line-clamp-3','overflow-hidden');
-          more.textContent = 'Baca Selengkapnya';
-        }
-      };
-      descWrapper.appendChild(more);
-    }
-    wrapper.appendChild(descWrapper);
+    wrapper.appendChild(desc);
 
-    // meta
     const meta = document.createElement('div');
     meta.className = 'text-sm space-y-1';
     meta.innerHTML = `
@@ -316,34 +290,21 @@
     `;
     wrapper.appendChild(meta);
 
-    // download button (default disabled)
     const btn = document.createElement('a');
     btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
     btn.href = '#';
-    btn.textContent = '⬇️ Download ZIP dari GitHub';
+    btn.textContent = '⬇️ Download ZIP (cek GitHub...)';
     wrapper.appendChild(btn);
 
-    // perform branch check and release check, then update btn
     checkBranchExists(game.steam_appid).then(exists => {
-      // check release date
-      const releaseStr = (game.release_date && game.release_date.date) ? game.release_date.date : '';
-      const releaseDate = releaseStr ? new Date(releaseStr) : null;
-      const now = new Date();
-      const notReleased = releaseDate ? (releaseDate > now) : false;
-
-      if (exists && !notReleased) {
+      if (exists) {
         btn.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${game.steam_appid}`;
         btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700';
         btn.textContent = '⬇️ Download ZIP';
-      } else if (notReleased) {
-        btn.textContent = '⚠️ Belum Rilis';
-        btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
       } else {
-        btn.textContent = '⚠️ data tidak tersedia';
+        btn.textContent = '⚠️ ZIP tidak tersedia';
         btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
       }
-    }).catch(() => {
-      btn.textContent = '⚠️ data tidak tersedia';
     });
 
     return wrapper;
