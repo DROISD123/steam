@@ -76,8 +76,6 @@ app.get("/api/search", async (req, res) => {
 // optional: health check
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-app.listen(PORT, () => {
-  console.log(`✅ Server berjalan di http://localhost:${PORT}`);
-  console.log(` - UI: http://localhost:${PORT}/`);
-  console.log(` - JSON endpoint: http://localhost:${PORT}/json?id=570`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server berjalan di port ${PORT}`);
 });
