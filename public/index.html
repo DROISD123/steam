@@ -218,27 +218,34 @@ async function checkBranchExists(appId) {
   }
 }
 
-  function makeButtons(appId){
-    const wrap = document.createElement('div');
-    wrap.className = 'mt-3 grid grid-cols-1 gap-2'; // vertical
-    const btnZip = document.createElement('a');
-    btnZip.href = '#';
-    btnZip.className = 'w-full text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
-    btnZip.textContent = '⬇️ Download ZIP';
-    checkBranchExists(appId).then(exists => {
-      if (exists){
-        btnZip.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${appId}`;
-        btnZip.className = 'w-full text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700';
-      } else { btnZip.textContent = '⚠️ ZIP tidak tersedia'; }
-    });
-    const btnSteam = document.createElement('a');
-    btnSteam.href = `https://store.steampowered.com/app/${appId}`;
-    btnSteam.target = '_blank';
-    btnSteam.className = 'w-full text-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700';
-    btnSteam.textContent = '🌐 Buka di Steam';
-    wrap.appendChild(btnZip); wrap.appendChild(btnSteam);
-    return wrap;
-  }
+function makeButtons(appId){
+  const wrap = document.createElement('div');
+  // mt-auto = dorong ke bawah; h-11 = tinggi tombol konsisten
+  wrap.className = 'mt-4 mt-auto grid grid-cols-1 gap-2';
+
+  const btnZip = document.createElement('a');
+  btnZip.href = '#';
+  btnZip.className = 'h-11 w-full text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed flex items-center justify-center';
+  btnZip.textContent = '⬇️ Download ZIP';
+  checkBranchExists(appId).then(exists => {
+    if (exists){
+      btnZip.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${appId}`;
+      btnZip.className = 'h-11 w-full text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 flex items-center justify-center';
+    } else {
+      btnZip.textContent = '⚠️ ZIP tidak tersedia';
+    }
+  });
+
+  const btnSteam = document.createElement('a');
+  btnSteam.href = `https://store.steampowered.com/app/${appId}`;
+  btnSteam.target = '_blank';
+  btnSteam.className = 'h-11 w-full text-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center';
+  btnSteam.textContent = '🌐 Buka di Steam';
+
+  wrap.appendChild(btnZip);
+  wrap.appendChild(btnSteam);
+  return wrap;
+}
 
   // ===== Search =====
   async function doSearch(){
