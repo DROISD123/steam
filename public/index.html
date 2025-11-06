@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ManifestHub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎮</text></svg>">
+
+  <title>Manifest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -12,7 +14,7 @@
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
 
-  <!-- Menu fixed pojok kanan atas -->
+  <!-- Menu -->
   <div class="fixed top-4 right-4 z-50">
     <div class="relative">
       <button id="menuBtn" class="bg-gray-700 px-3 py-2 rounded-lg hover:bg-gray-600">☰</button>
@@ -28,11 +30,9 @@
 
   <div class="max-w-6xl mx-auto p-6">
     <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
-      <!-- Header -->
       <div class="mb-4">
         <h1 class="text-center text-2xl sm:text-3xl font-bold text-indigo-300 flex items-center justify-center gap-3">
-          <span>🎮</span>
-          <span>ManifestHub</span>
+          <span>🎮</span><span>Manifest steam</span>
         </h1>
       </div>
 
@@ -47,16 +47,17 @@
 
       <div id="status" class="mb-4 text-sm"></div>
 
-      <!-- Results grid -->
-      <div id="results" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+      <!-- Grid: responsif -->
+      <div id="results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"></div>
 
+      <!-- (Opsional) tombol load more: kita sembunyikan karena render semua -->
       <div class="flex justify-center mt-6">
         <button id="loadMoreBtn" class="hidden bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg">Load More</button>
       </div>
     </div>
   </div>
-
-  <!-- Modals -->
+  <!-- Modals (About, Help, Manta, Steam Tool) -->
+    <!-- Modals -->
  <div id="aboutModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
     <div class="bg-gray-800 text-gray-200 rounded-xl shadow-lg p-6 max-w-lg w-full">
       <h2 class="text-xl font-bold mb-3">ℹ️ Tentang ManifestHub</h2>
@@ -153,8 +154,12 @@
   </div>
 </div>
 
+  <!-- Tombol scroll atas/bawah -->
+  <button id="scrollTopBtn" class="hidden fixed bottom-20 right-5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg transition-opacity duration-300 z-50">⬆️</button>
+  <button id="scrollBottomBtn" class="hidden fixed bottom-5 right-5 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full shadow-lg transition-opacity duration-300 z-50">⬇️</button>
 
 <script>
+  // ===== JSON redirect (opsional) =====
   (function checkJsonMode(){
     const params = new URLSearchParams(window.location.search);
     if (params.get('json') === '1' && params.get('id')) {
@@ -164,6 +169,7 @@
     }
   })();
 
+  // ===== Menu =====
   const menuBtn = document.getElementById('menuBtn');
   const menuDropdown = document.getElementById('menuDropdown');
   menuBtn?.addEventListener('click', (e) => { e.stopPropagation(); menuDropdown.classList.toggle('hidden'); });
@@ -178,11 +184,11 @@
   function openSteamTool(){ steamToolModal.classList.remove('hidden'); steamToolModal.classList.add('flex'); }
   function closeSteamTool(){ steamToolModal.classList.add('hidden'); steamToolModal.classList.remove('flex'); }
 
+  // ===== State =====
   const owner = "SteamAutoCracks";
-  const repo = "ManifestHub";
+  const repo  = "ManifestHub";
   let allResults = [];
   let shownCount = 0;
-  const perPage = 6;
 
   const searchBtn = document.getElementById('searchBtn');
   const searchInput = document.getElementById('searchInput');
@@ -190,7 +196,6 @@
 
   searchBtn.addEventListener('click', doSearch);
   searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
-  loadMoreBtn.addEventListener('click', loadMore);
 
   function setStatus(msg, isError=false){
     const el = document.getElementById('status');
@@ -198,19 +203,55 @@
     el.className = isError ? 'mb-4 text-red-400 text-sm' : (msg ? 'mb-4 text-yellow-300 text-sm' : 'mb-4 text-sm');
   }
 
+  // ===== Utils =====
+  function formatIDR(s) {
+    try { return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(s); }
+    catch { return `Rp ${Number(s||0).toLocaleString('id-ID')}`; }
+  }
+async function checkBranchExists(appId) {
+  try {
+    const r = await fetch(`/api/zip-exists?id=${encodeURIComponent(appId)}`);
+    const j = await r.json();
+    return !!j.exists;
+  } catch {
+    return false;
+  }
+}
+
+  function makeButtons(appId){
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-3 grid grid-cols-1 gap-2'; // vertical
+    const btnZip = document.createElement('a');
+    btnZip.href = '#';
+    btnZip.className = 'w-full text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
+    btnZip.textContent = '⬇️ Download ZIP';
+    checkBranchExists(appId).then(exists => {
+      if (exists){
+        btnZip.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${appId}`;
+        btnZip.className = 'w-full text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700';
+      } else { btnZip.textContent = '⚠️ ZIP tidak tersedia'; }
+    });
+    const btnSteam = document.createElement('a');
+    btnSteam.href = `https://store.steampowered.com/app/${appId}`;
+    btnSteam.target = '_blank';
+    btnSteam.className = 'w-full text-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700';
+    btnSteam.textContent = '🌐 Buka di Steam';
+    wrap.appendChild(btnZip); wrap.appendChild(btnSteam);
+    return wrap;
+  }
+
+  // ===== Search =====
   async function doSearch(){
     const q = searchInput.value.trim();
     if (!q) return;
     document.getElementById('results').innerHTML = '';
-    loadMoreBtn.classList.add('hidden');
     setStatus('⏳ Mencari game...');
 
     try {
       let appIds = [];
-      if (/^\d+$/.test(q)) {
-        appIds = [q];
-      } else {
-        const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      if (/^\d+$/.test(q)) appIds = [q];
+      else {
+        const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&cc=id&l=indonesian`);
         const data = await r.json();
         if (data.items?.length) appIds = data.items.map(i => i.id);
       }
@@ -220,18 +261,14 @@
       allResults = [];
       for (const id of appIds) {
         try {
-          const r = await fetch(`/api/appdetails?id=${id}`);
+          const r = await fetch(`/api/appdetails?id=${id}&cc=id&l=indonesian`);
           const obj = await r.json();
           if (obj[id]?.success) allResults.push(obj[id].data);
-        } catch(e){
-          console.error(e);
-        }
+        } catch(e){ console.error(e); }
       }
-
       if (!allResults.length) { setStatus('⚠️ Gagal mengambil data.', true); return; }
 
-      shownCount = 0;
-      renderResults();
+      renderResults();     // tampilkan semua
       setStatus('');
     } catch (err){
       console.error(err);
@@ -241,22 +278,9 @@
 
   function renderResults(){
     const container = document.getElementById('results');
-    const slice = allResults.slice(shownCount, shownCount + perPage);
-    slice.forEach(game => container.appendChild(makeCard(game)));
-    shownCount += slice.length;
-    if (shownCount < allResults.length) loadMoreBtn.classList.remove('hidden'); else loadMoreBtn.classList.add('hidden');
-  }
-
-  function loadMore(){ renderResults(); }
-
-  async function checkBranchExists(appId){
-    const url = `https://api.github.com/repos/${owner}/${repo}/branches/${appId}`;
-    try {
-      const r = await fetch(url);
-      return r.ok;
-    } catch {
-      return false;
-    }
+    container.innerHTML = '';
+    allResults.forEach(game => container.appendChild(makeCard(game)));
+    loadMoreBtn.classList.add('hidden'); // tak pakai pagination
   }
 
   function makeCard(game){
@@ -290,25 +314,90 @@
     `;
     wrapper.appendChild(meta);
 
-    const btn = document.createElement('a');
-    btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
-    btn.href = '#';
-    btn.textContent = '⬇️ Download ZIP (cek GitHub...)';
-    wrapper.appendChild(btn);
-
-    checkBranchExists(game.steam_appid).then(exists => {
-      if (exists) {
-        btn.href = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${game.steam_appid}`;
-        btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700';
-        btn.textContent = '⬇️ Download ZIP';
-      } else {
-        btn.textContent = '⚠️ ZIP tidak tersedia';
-        btn.className = 'mt-3 inline-block text-center px-4 py-2 rounded-lg bg-gray-500 cursor-not-allowed';
-      }
-    });
-
+    wrapper.appendChild(makeButtons(game.steam_appid)); // tombol vertikal
     return wrapper;
   }
+
+  // ===== Featured / Event (ID) =====
+  async function loadSteamEvents() {
+    setStatus('🔥 Menampilkan game event/diskon Steam (Indonesia)...');
+    const container = document.getElementById('results');
+    container.innerHTML = '';
+
+    try {
+      const r = await fetch('/api/featured?cc=id&l=indonesian');
+      const data = await r.json();
+      const items = (data?.specials?.items?.length ? data.specials.items
+                    : data?.topsellers?.items?.length ? data.topsellers.items : []);
+      if (!items.length) { setStatus('⚠️ Tidak ada event Steam ditemukan saat ini.', true); return; }
+
+      // tampilkan semua
+      const details = await Promise.all(items.map(async (g) => {
+        try {
+          const rr = await fetch(`/api/appdetails?id=${g.id}&cc=id&l=indonesian`);
+          const raw = await rr.json();
+          const node = raw?.[g.id];
+          return node?.success ? node.data : null;
+        } catch { return null; }
+      }));
+
+      items.forEach((g, idx) => {
+        const d = details[idx];
+        const card = document.createElement('div');
+        card.className = 'bg-gray-700 p-4 rounded-lg shadow flex flex-col hover:shadow-xl transition-transform duration-200';
+
+        const img = document.createElement('img');
+        img.src = g.large_capsule_image || g.header_image || '';
+        img.alt = g.name || '';
+        img.className = 'w-full rounded-lg mb-3 object-cover';
+        card.appendChild(img);
+
+        const title = document.createElement('h3');
+        title.className = 'text-lg font-semibold mb-2 text-blue-300';
+        title.textContent = `${g.name} (ID: ${g.id})`;
+        card.appendChild(title);
+
+        const priceP = document.createElement('p');
+        priceP.className = 'text-sm mb-2';
+        const pov = d?.price_overview;
+        if (pov?.final_formatted) {
+          if (pov.discount_percent > 0) {
+            priceP.innerHTML = `🪙 <span class="line-through text-gray-400">${pov.initial_formatted || formatIDR(pov.initial)}</span> → <b>${pov.final_formatted || formatIDR(pov.final)}</b> (-${pov.discount_percent}%)`;
+          } else {
+            priceP.textContent = d?.is_free ? 'Gratis' : `🪙 ${pov.final_formatted}`;
+          }
+        } else if (g.discounted) priceP.textContent = `🪙 Diskon ${g.discount_percent}%`;
+        else priceP.textContent = '🪙 Lihat harga di Steam';
+        card.appendChild(priceP);
+
+        card.appendChild(makeButtons(g.id));
+        container.appendChild(card);
+      });
+
+      setStatus('');
+    } catch (err) {
+      console.error(err);
+      setStatus('⚠️ Gagal memuat event Steam.', true);
+    }
+  }
+
+  // ===== Scroll top/bottom buttons =====
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+  const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+  function smoothScroll(y) { window.scrollTo({ top: y, behavior: 'smooth' }); }
+  scrollTopBtn.addEventListener('click', () => smoothScroll(0));
+  scrollBottomBtn.addEventListener('click', () => smoothScroll(document.body.scrollHeight));
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY;
+    const nearBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200;
+    scrolled > 200 ? scrollTopBtn.classList.remove('hidden') : scrollTopBtn.classList.add('hidden');
+    !nearBottom ? scrollBottomBtn.classList.remove('hidden') : scrollBottomBtn.classList.add('hidden');
+  });
+
+  // ===== Init: tampilkan featured jika belum cari =====
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!searchInput.value.trim()) loadSteamEvents();
+  });
 </script>
 </body>
 </html>
